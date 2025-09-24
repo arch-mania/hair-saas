@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(npm install:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run build:*)",
+      "WebFetch(domain:chatgpt.com)",
+      "Bash(npm run dev:*)"
+    ],
+    "deny": []
+  }
+}
