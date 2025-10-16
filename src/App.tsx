@@ -799,7 +799,6 @@ function App() {
     let imageBitmap: ImageBitmap | null = null;
     try {
       // 一部ブラウザで自動補正される
-      // @ts-expect-error: ImageBitmapOptions の型差異を許容
       imageBitmap = await createImageBitmap(file, {
         imageOrientation: "from-image",
       });
@@ -998,26 +997,7 @@ function App() {
       .filter((url) => url !== null) as string[];
   };
 
-  // DALL-E 3でフォールバック生成
-  const generateWithDALLE3 = async (prompt: string) => {
-    const openai = getOpenAIClient();
-    const imagePromises = Array(1)
-      .fill(null)
-      .map(() =>
-        openai.images.generate({
-          model: "dall-e-3",
-          prompt: prompt,
-          n: 1,
-          size: "1024x1024",
-          quality: "standard",
-        })
-      );
-
-    const responses = await Promise.all(imagePromises);
-    return responses
-      .map((response) => response.data?.[0]?.url)
-      .filter((url): url is string => url !== null && url !== undefined);
-  };
+  
 
   const simulateProgress = (duration: number) => {
     const steps = [
@@ -1069,14 +1049,8 @@ function App() {
           imageUrls = await editWithGPTImage1(prompt, selectedImageFile);
           console.log("GPT Image 1 Edit で成功しました");
         } catch (editError) {
-          console.warn(
-            "GPT Image 1 Editでエラー、DALL-E 3にフォールバック:",
-            editError
-          );
-          alert("画像の生成に失敗しました。");
-          throw new Error("GPT Image 1 Editでエラー、DALL-E 3にフォールバック");
-          // imageUrls = await generateWithDALLE3(prompt);
-          // console.log("DALL-E 3 でフォールバック成功しました");
+          console.warn("GPT Image 1 Editでエラー:", editError);
+          throw new Error("GPT Image 1 Editでエラー");
         }
       } else {
         // アップロード画像がない場合は通常の生成
@@ -1129,12 +1103,8 @@ function App() {
 
           console.log("GPT Image 1 Generate で成功しました");
         } catch (generateError) {
-          console.warn(
-            "GPT Image 1 Generateでエラー、DALL-E 3にフォールバック:",
-            generateError
-          );
-          imageUrls = await generateWithDALLE3(prompt);
-          console.log("DALL-E 3 でフォールバック成功しました");
+          console.warn("GPT Image 1 Generateでエラー:", generateError);
+          throw new Error("GPT Image 1 Generateでエラー");
         }
       }
 
@@ -1150,30 +1120,28 @@ function App() {
     } catch (error) {
       console.error("Image generation failed:", error);
 
-      let errorMessage = "画像の生成に失敗しました。";
+      let errorMessage = "画像を生成できませんでした。";
 
       if (error instanceof Error) {
         if (error.message.includes("APIキー")) {
           errorMessage +=
-            "\n\nAPIキーが設定されていません。.envファイルを確認してください。";
+            "\n\nOpenAIのAPIキーが設定されていません。`.env` を確認し、キーを設定してからもう一度お試しください。";
         } else if (error.message.includes("401")) {
           errorMessage +=
-            "\n\nAPIキーが無効です。OpenAIのダッシュボードで確認してください。";
+            "\n\nAPIキーが無効です。OpenAIのダッシュボードでキーを確認・再発行してから再度お試しください。";
         } else if (error.message.includes("429")) {
           errorMessage +=
-            "\n\nAPIリクエストの制限に達しました。少し待ってから再度お試しください。";
+            "\n\nリクエストが一時的に多すぎます。しばらく時間を置いてから再度お試しください。";
         } else if (error.message.includes("insufficient_quota")) {
-          errorMessage += "\n\nOpenAIアカウントのクレジットが不足しています。";
+          errorMessage += "\n\nOpenAIアカウントの利用残高が不足しています。残高を追加してから再度お試しください。";
         } else if (error.message.includes("gpt-image-1")) {
           errorMessage +=
-            "\n\nGPT Image 1モデルが利用できません。DALL-E 3にフォールバックします。";
+            "\n\n画像生成モデル（gpt-image-1）が現在ご利用いただけません。時間を置いてから再度お試しください。";
         } else if (error.message.includes("Unknown parameter")) {
           errorMessage +=
-            "\n\nパラメーターエラー: " +
-            error.message +
-            "\n\nDALL-E 3にフォールバックします。";
+            "\n\nリクエストの設定に誤りがあります（詳細: " + error.message + "）。設定を見直してから再度お試しください。";
         } else {
-          errorMessage += "\n\nエラー詳細: " + error.message;
+          errorMessage += "\n\n詳細: " + error.message;
         }
       }
 
